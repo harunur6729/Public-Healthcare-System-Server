@@ -8,10 +8,10 @@ require('dotenv').config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // From MAilgun: 
-const formData = require('form-data');
-const Mailgun = require('mailgun.js');
-const mailgun = new Mailgun(formData);
-const mg = mailgun.client({ username: 'api', key: process.env.MAILGUN_API_KEY || 'fffc5eb26f66c40bc899bc9be209c7be-784975b6-6ad4e9a5' });
+// const formData = require('form-data');
+// const Mailgun = require('mailgun.js');
+// const mailgun = new Mailgun(formData);
+// const mg = mailgun.client({ username: 'api', key: process.env.MAILGUN_API_KEY || 'fffc5eb26f66c40bc899bc9be209c7be-784975b6-6ad4e9a5' });
 
 
 
@@ -32,41 +32,83 @@ const client = new MongoClient(process.env.MONGODB_URI || uri, {
 
 
 // Main Code Mailgun: 
-// function sendBookingEmail(booking) {
-//     const { email, treatment, appointmentDate, slot } = booking;
+function sendBookingEmail(paidBookingResult) {
+    const { email, treatment, appointmentDate, slot } = paidBookingResult;
+    console.log("paidBookingResult sendBookingEmail from function", paidBookingResult);
 
-//     const auth = {
-//         auth: {
-//             api_key: process.env.MAILGUN_API_KEY,
-//             domain: process.env.EMAIL_SENDING_DOMAIN
-//         }
-//     }
 
-//     const transporter = nodemailer.createTransport(mg(auth));
 
-//     console.log('sending email', email)
-//     transporter.sendMail({
-//         from: "harunur15-13726@diu.edu.bd", // verified sender email
-//         to: email || 'harunur15-13726@diu.edu.bd', // recipient email
-//         subject: `Your appointment for ${treatment} is confirmed`, // Subject line
-//         text: "Hello world!", // plain text body
-//         html: `
-//         <h3>Your appointment is confirmed</h3>
-//         <div>
-//             <p>Your appointment for treatment: ${treatment}</p>
-//             <p>Please visit us on ${appointmentDate} at ${slot}</p>
-//             <p>Thanks from Doctors Portal.</p>
-//         </div>
+    // using nodeMailer and ethereal for sending mail: 
+    const transporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        auth: {
+            user: 'foster.frami@ethereal.email',
+            pass: '7xGD66WDnEFarGG9vE'
+        }
+    });
 
-//         `, // html body
-//     }, function (error, info) {
-//         if (error) {
-//             console.log('Email send error', error);
-//         } else {
-//             console.log('Email sent: ' + info);
-//         }
-//     });
-// }
+    // async..await is not allowed in global scope, must use a wrapper
+    async function main() {
+        // send mail with defined transport object
+        const info = await transporter.sendMail({
+            from: '"Maddison Foo Koch 👻" <maddison53@ethereal.email>', // sender address
+            to: "harunur15-13726@diu.edu.bd", // list of receivers
+            subject: "Appointment confirmation...!", // Subject line
+            text: "Hi There...", // plain text body
+            html: `
+                        <h3>Your appointment is confirmed at ${slot}</h3>
+                        <div>
+                            <p>Your appointment for treatment: ${treatment}</p>
+                            <p>Please visit us on ${appointmentDate} at ${slot}</p>
+                            <p>Thanks from docApp...!</p>
+                        </div>
+                        `
+        });
+
+        console.log("Message sent: %s", info.messageId);
+        // Message sent: <d786aa62-4e0a-070a-47ed-0b0666549519@ethereal.email>
+    }
+    main().catch(console.error);
+
+
+
+    // using mailGun for sending mail:
+    // const auth = {
+    //     auth: {
+    //         api_key: process.env.MAILGUN_API_KEY,
+    //         domain: process.env.EMAIL_SENDING_DOMAIN
+    //     }
+    // }
+
+    // const transporter = nodemailer.createTransport(mg(auth));
+
+    // console.log('sending email', email)
+    // transporter.sendMail({
+    //     from: "harunur15-13726@diu.edu.bd", // verified sender email
+    //     to: email || 'harunur15-13726@diu.edu.bd', // recipient email
+    //     subject: `Your appointment for ${treatment} is confirmed`, // Subject line
+    //     text: "Hello world!", // plain text body
+    // //     html: `
+    //                     <h3>Your appointment is confirmed at ${slot}</h3>
+    //                     <div>
+    //                         <p>Your appointment for treatment: ${treatment}</p>
+    //                         <p>Please visit us on ${appointmentDate} at ${slot}</p>
+    //                         <p>Thanks from docApp...!</p>
+    //                     </div>
+    //                     `, // html body
+    // }, function (error, info) {
+    //     if (error) {
+    //         console.log('Email send error', error);
+    //     } else {
+    //         console.log('Email sent: ' + info);
+    //     }
+    // });
+
+
+
+
+}
 
 
 // verifyJWT: 
@@ -85,7 +127,6 @@ function verifyJWT(req, res, next) {
         next();
     })
 }
-
 
 async function run() {
     try {
@@ -230,6 +271,10 @@ async function run() {
             }
 
             const result = await bookingsCollection.insertOne(booking);
+
+            // // send email about appointment confirmation 
+            // sendBookingEmail(booking)
+
             res.send(result);
         });
 
@@ -253,6 +298,8 @@ async function run() {
         app.post('/payments', async (req, res) => {
             const payment = req.body;
             const result = await paymentsCollection.insertOne(payment);
+
+
             const id = payment.bookingId
             const filter = { _id: ObjectId(id) }
             const updatedDoc = {
@@ -261,79 +308,12 @@ async function run() {
                     transactionId: payment.transactionId
                 }
             }
-            const updatedResult = await bookingsCollection.updateOne(filter, updatedDoc)
+            const updateBooking = await bookingsCollection.updateOne(filter, updatedDoc)
 
-            // sendBookingEmail({
-            //     "appointmentDate": 'Oct 22, 2024',
-            //     "treatment": 'Cavity Protection',
-            //     "patient": 'raian1',
-            //     "slot": '08.00 AM - 08.30 AM',
-            //     "email": 'raian1@gmail.com',
-            //     "phone": '01731346372',
-            //     "price": '40'
-            // })
-
+            const paidBookingResult = await bookingsCollection.findOne(filter)
+            console.log("Paid booking result ", paidBookingResult);
             // // send email about appointment confirmation 
-            // sendBookingEmail(booking)
-
-
-
-            // const transporter = nodemailer.createTransport({
-            //     host: 'smtp.ethereal.email',
-            //     port: 587,
-            //     auth: {
-            //         user: 'wilfrid.cremin63@ethereal.email',
-            //         pass: 'jrxgUnybWNKt4w88Sw'
-            //     }
-            // });
-
-            // // async..await is not allowed in global scope, must use a wrapper
-            // async function main() {
-            //     // send mail with defined transport object
-            //     const info = await transporter.sendMail({
-            //         from: '"Maddison Foo Koch 👻" <maddison53@ethereal.email>', // sender address
-            //         to: "harunur15-13726@diu.edu.bd", // list of receivers
-            //         subject: "Hello ✔", // Subject line
-            //         text: "Hello world?", // plain text body
-            //         html: `
-            //                     <h3>Your appointment is confirmed</h3>
-            //                     <div>
-            //                         <p>Your appointment for treatment: treatment}</p>
-            //                         <p>Please visit us on appointmentDate} at slot}</p>
-            //                         <p>Thanks from Doctors Portal.</p>
-            //                     </div>
-            //                     `
-            //     });
-
-            //     console.log("Message sent: %s", info.messageId);
-            //     // Message sent: <d786aa62-4e0a-070a-47ed-0b0666549519@ethereal.email>
-            // }
-            // main().catch(console.error);
-
-
-
-
-
-            mg.messages.create('sandbox-123.mailgun.org', {
-                from: "Excited User <mailgun@sandbox6e9a6884f16c435f81a9dfeb2def86b3.mailgun.org>",
-                to: ["test@example.com"],
-                subject: "Hello",
-                text: "Testing some Mailgun awesomeness!",
-                html: `
-                        <h3>Your appointment is confirmed</h3>
-                        <div>
-                            <p>Your appointment for treatment: $treatment}</p>
-                            <p>Please visit us on $appointmentDate} at $slot}</p>
-                            <p>Thanks from Doctors Portal.</p>
-                        </div>
-                        `,
-            })
-                .then(msg => console.log(msg)) // logs response data
-                .catch(err => console.log(err)); // logs any error
-
-
-
-
+            sendBookingEmail(paidBookingResult)
 
             res.send(result);
         })
