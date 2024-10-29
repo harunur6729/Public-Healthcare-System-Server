@@ -8,10 +8,10 @@ require('dotenv').config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // From MAilgun: 
-// const formData = require('form-data');
-// const Mailgun = require('mailgun.js');
-// const mailgun = new Mailgun(formData);
-// const mg = mailgun.client({ username: 'api', key: process.env.MAILGUN_API_KEY || 'fffc5eb26f66c40bc899bc9be209c7be-784975b6-6ad4e9a5' });
+const formData = require('form-data');
+const Mailgun = require('mailgun.js');
+const mailgun = new Mailgun(formData);
+const mg = mailgun.client({ username: 'api', key: process.env.MAILGUN_API_KEY || '05679b17ae0d375a57ae5b485236ec5a-72e4a3d5-7c18af7d' });
 
 
 
@@ -39,75 +39,52 @@ function sendBookingEmail(paidBookingResult) {
 
 
     // using nodeMailer and ethereal for sending mail: 
-    const transporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
-        port: 587,
-        auth: {
-            user: 'foster.frami@ethereal.email',
-            pass: '7xGD66WDnEFarGG9vE'
-        }
-    });
-
-    // async..await is not allowed in global scope, must use a wrapper
-    async function main() {
-        // send mail with defined transport object
-        const info = await transporter.sendMail({
-            from: '"Maddison Foo Koch 👻" <maddison53@ethereal.email>', // sender address
-            to: "harunur15-13726@diu.edu.bd", // list of receivers
-            subject: "Appointment confirmation...!", // Subject line
-            text: "Hi There...", // plain text body
-            html: `
-                        <h3>Your appointment is confirmed at ${slot}</h3>
-                        <div>
-                            <p>Your appointment for treatment: ${treatment}</p>
-                            <p>Please visit us on ${appointmentDate} at ${slot}</p>
-                            <p>Thanks from docApp...!</p>
-                        </div>
-                        `
-        });
-
-        console.log("Message sent: %s", info.messageId);
-        // Message sent: <d786aa62-4e0a-070a-47ed-0b0666549519@ethereal.email>
-    }
-    main().catch(console.error);
-
-
-
-    // using mailGun for sending mail:
-    // const auth = {
+    // const transporter = nodemailer.createTransport({
+    //     host: 'smtp.ethereal.email',
+    //     port: 587,
     //     auth: {
-    //         api_key: process.env.MAILGUN_API_KEY,
-    //         domain: process.env.EMAIL_SENDING_DOMAIN
+    //         user: 'gerson.eichmann@ethereal.email',
+    //         pass: 'b56JH4uQGaZcBsxcd7'
     //     }
-    // }
+    // });
 
-    // const transporter = nodemailer.createTransport(mg(auth));
-
-    // console.log('sending email', email)
-    // transporter.sendMail({
-    //     from: "harunur15-13726@diu.edu.bd", // verified sender email
-    //     to: email || 'harunur15-13726@diu.edu.bd', // recipient email
-    //     subject: `Your appointment for ${treatment} is confirmed`, // Subject line
-    //     text: "Hello world!", // plain text body
-    // //     html: `
+    // // async..await is not allowed in global scope, must use a wrapper
+    // async function main() {
+    //     // send mail with defined transport object
+    //     const info = await transporter.sendMail({
+    //         from: '"Maddison Foo Koch 👻" <maddison53@ethereal.email>', // sender address
+    //         to: "harunur15-13726@diu.edu.bd", // list of receivers
+    //         subject: "Appointment confirmation...!", // Subject line
+    //         text: "Hi There...", // plain text body
+    //         html: `
     //                     <h3>Your appointment is confirmed at ${slot}</h3>
     //                     <div>
     //                         <p>Your appointment for treatment: ${treatment}</p>
     //                         <p>Please visit us on ${appointmentDate} at ${slot}</p>
     //                         <p>Thanks from docApp...!</p>
     //                     </div>
-    //                     `, // html body
-    // }, function (error, info) {
-    //     if (error) {
-    //         console.log('Email send error', error);
-    //     } else {
-    //         console.log('Email sent: ' + info);
-    //     }
-    // });
+    //                     `
+    //     });
+
+    //     console.log("Message sent: %s", info.messageId);
+    //     // Message sent: <d786aa62-4e0a-070a-47ed-0b0666549519@ethereal.email>
+    // }
+    // main().catch(console.error);
 
 
+    console.log("Console before");
+    // using mailGun for sending mail:
+    mg.messages.create('sandbox-123.mailgun.org', {
+        from: "Excited User <mailgun@sandbox178c7ee8801c4251a448e706e9e7c9c6.mailgun.org>",
+        to: ["test@example.com"],
+        subject: "Hello",
+        text: "Testing some Mailgun awesomeness!",
+        html: "<h1>Testing some Mailgun awesomeness!</h1>"
+    })
+        .then(msg => console.log("msg for sending", msg)) // logs response data
+        .catch(err => console.log("msg for sending err", err)); // logs any error
 
-
+    console.log("Console after");
 }
 
 
@@ -135,6 +112,10 @@ async function run() {
         const usersCollection = client.db('docApp').collection('users');
         const doctorsCollection = client.db('docApp').collection('doctors');
         const paymentsCollection = client.db('docApp').collection('payments');
+        const postCollection = client.db("docApp").collection("posts")
+
+        const ConversationCollection = client.db('docApp').collection("conversations");
+        const ConversationMessageCollection = client.db('docApp').collection("conversation-messages");
 
         console.log("MongoDB connected!");
 
@@ -395,6 +376,280 @@ async function run() {
             const result = await doctorsCollection.deleteOne(filter);
             res.send(result);
         })
+
+        // Post home page:
+        app.post('/posts', async (req, res) => {
+            const data = req.body;
+            const result = await postCollection.insertOne(data)
+            res.send(result)
+        })
+
+        app.get('/posts', async (req, res) => {
+            const postData = postCollection.find({}).sort({ timestamp: -1 });
+            const result = await postData.toArray();
+            const reversedResult = result.reverse();
+            res.send(reversedResult)
+        })
+
+
+
+
+
+        // *************************> conversations server code Start: <***********************
+        app.post("/conversations", async (req, res) => {
+            try {
+                const { email, propertyId } = req?.body || {};
+                if (!(email && propertyId)) {
+                    return res
+                        .status(400)
+                        .json({
+                            error: "Missing required params!",
+                            fields: ["email", "propertyId"],
+                        });
+                }
+
+                const property = (await products.findOne({ _id: ObjectId(propertyId) })) || {};
+                if (!property?._id) {
+                    return res.status(404).json({
+                        error: "Could not find property!",
+                        fields: ["email", "propertyId"],
+                    });
+                }
+
+                const isPropertyOwner = !!(property?.email === email);
+                if (!isPropertyOwner) {
+                    const conversation = await ConversationCollection.findOne({
+                        "participants.email": email,
+                        propertyId: ObjectId(propertyId),
+                    });
+
+                    if (!conversation?._id) {
+                        const { name: propertyOwner, email: receiverEmail } = property || {};
+                        if (!(receiverEmail && propertyOwner)) {
+                            return res.status(404).json({
+                                error: "Could not find property info!",
+                                fields: ["receiverEmail", "propertyOwner"],
+                            });
+                        }
+
+                        const senderUser = (await usersCollection.findOne({ email })) || {};
+                        if (!senderUser?._id) {
+                            return res
+                                .status(404)
+                                .json({ error: "Could not find sender user!" });
+                        }
+
+                        const { insertedId } =
+                            (await ConversationCollection.insertOne({
+                                participants: [
+                                    { name: senderUser?.name, email: senderUser?.email },
+                                    { name: propertyOwner, email: receiverEmail },
+                                ],
+                                propertyId: ObjectId(propertyId),
+                                createdBy: senderUser?.email,
+                                createdAt: new Date(),
+                                updatedAt: new Date(),
+                            })) || {};
+                        if (!insertedId) {
+                            return res
+                                .status(500)
+                                .json({ error: "Could not create conversation!" });
+                        }
+                    }
+                }
+
+                const conversations = await ConversationCollection.aggregate([
+                    {
+                        $match: {
+                            "participants.email": email,
+                            propertyId: ObjectId(propertyId),
+                        },
+                    },
+                    {
+                        $lookup: {
+                            from: "conversation-messages",
+                            localField: "_id",
+                            foreignField: "conversationId",
+                            as: "conversationMessages",
+                        },
+                    },
+                ]).toArray();
+
+                res.status(200).json({
+                    count: conversations?.length,
+                    conversations,
+                    message: "Successfully Fetched",
+                    success: true,
+                });
+            } catch (err) {
+                res.status(500).json({ error: err.message });
+            }
+        });
+
+        app.delete("/conversations/:id", async (req, res) => {
+            try {
+                const conversation = await ConversationCollection.findOne({
+                    _id: req?.params?.id,
+                });
+
+                if (!conversation) {
+                    return res
+                        .status(400)
+                        .json({ error: "Could not find conversation!" });
+                }
+
+                const isDeleted = await ConversationCollection.deleteOne({
+                    _id: req?.params?.id,
+                });
+
+                res.status(200).json({
+                    conversation,
+                    message: !!isDeleted
+                        ? "Successfully Deleted"
+                        : "Could not delete the conversation!",
+                    success: !!isDeleted,
+                });
+            } catch (err) {
+                res.status(500).json({ error: err.message });
+            }
+        });
+
+        app.post("/conversations/messages", async (req, res, next) => {
+            try {
+                const { conversationId, message, senderEmail } = req.body || {};
+
+                if (!(conversationId && message && senderEmail)) {
+                    return res.status(400).json({ error: "Invalid request!" });
+                }
+
+                const senderUser =
+                    (await usersCollection.findOne({ email: senderEmail })) || {};
+                if (!senderUser) {
+                    return res.status(400).json({ error: "Could not find user!" });
+                }
+
+                const conversation =
+                    (await ConversationCollection.findOne({
+                        _id: ObjectId(conversationId),
+                    })) || {};
+                if (!conversation?._id) {
+                    return res
+                        .status(400)
+                        .json({ error: "Could not find conversation!" });
+                }
+
+                const { insertedId } = await ConversationMessageCollection.insertOne({
+                    conversationId: ObjectId(conversationId),
+                    message,
+                    createdBy: senderUser?.email,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                });
+                const conversationMessage = await ConversationMessageCollection.findOne(
+                    { _id: insertedId }
+                );
+
+                res.status(200).json({
+                    conversationMessage,
+                    message: !!conversationMessage
+                        ? "Successfully Created"
+                        : "Could not create conversation message!",
+                    success: !!conversationMessage,
+                });
+            } catch (err) {
+                res.status(500).json({ error: err.message });
+            }
+        });
+
+        app.get("/conversations/messages/:conversationId", async (req, res) => {
+            try {
+                const conversationMessages = await ConversationMessageCollection.find({
+                    conversationId: req?.params?.conversationId,
+                }).toArray();
+
+                res.status(200).json({
+                    count: conversationMessages?.length,
+                    conversationMessages,
+                    message: "Successfully Fetched",
+                    success: true,
+                });
+            } catch (err) {
+                res.status(500).json({ error: err.message });
+            }
+        });
+
+        app.put("/conversations/messages/:id", async (req, res) => {
+            try {
+                const { message } = req?.body || {};
+                if (!message) {
+                    return res.status(400).json({ error: "Invalid request!" });
+                }
+
+                const conversationMessage = await ConversationMessageCollection.findOne(
+                    {
+                        _id: req?.params?.id,
+                    }
+                );
+
+                if (!conversationMessage) {
+                    return res
+                        .status(400)
+                        .json({ error: "Could not find conversation message!" });
+                }
+
+                const updatedConversationMessage =
+                    await ConversationMessageCollection.update(
+                        { _id: req?.params?.id },
+                        { $set: { isUpdated: true, message, updatedAt: new Date() } }
+                    );
+
+                res.status(200).json({
+                    conversationMessage: updatedConversationMessage,
+                    message: !!updatedConversationMessage
+                        ? "Successfully Updated"
+                        : "Could not update the conversation message!",
+                    success: !!updatedConversationMessage,
+                });
+            } catch (err) {
+                res.status(500).json({ error: err.message });
+            }
+        });
+
+        app.delete("/conversations/messages/:id", async (req, res) => {
+            try {
+                const conversationMessage = await ConversationMessageCollection.findOne(
+                    {
+                        _id: req?.params?.id,
+                    }
+                );
+
+                if (!conversationMessage) {
+                    return res
+                        .status(400)
+                        .json({ error: "Could not find conversation message!" });
+                }
+
+                const isDeleted = await ConversationMessageCollection.remove({
+                    _id: req?.params?.id,
+                });
+
+                res.status(200).json({
+                    conversationMessage,
+                    message: !!isDeleted
+                        ? "Successfully Deleted"
+                        : "Could not delete the conversation message!",
+                    success: !!isDeleted,
+                });
+            } catch (err) {
+                res.status(500).json({ error: err.message });
+            }
+        });
+        // *************************> conversations server code End: <***********************
+
+
+
+
+
 
     }
     finally {
