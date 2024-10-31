@@ -133,6 +133,19 @@ async function run() {
             next();
         }
 
+        const verifyDoctor = async (req, res, next) => {
+            const decodedEmail = req.decoded.email;
+            console.log("decodedEmail verifyDoctor", decodedEmail);
+
+            const query = { email: decodedEmail };
+            const user = await usersCollection.findOne(query);
+
+            if (user?.role !== 'doctor') {
+                return res.status(403).send({ message: 'forbidden access' })
+            }
+            next();
+        }
+
         // Use Aggregate to query multiple collection and then merge data
         app.get('/appointmentOptions', async (req, res) => {
             const date = req.query.date;
@@ -323,6 +336,13 @@ async function run() {
             res.send({ isAdmin: user?.role === 'admin' });
         })
 
+        app.get('/users/doctor/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email }
+            const user = await usersCollection.findOne(query);
+            res.send({ isDoctor: user?.role === 'doctor' });
+        })
+
         app.post('/users', async (req, res) => {
             const user = req.body;
             console.log("user", user);
@@ -336,9 +356,24 @@ async function run() {
             const id = req.params.id;
             const filter = { _id: ObjectId(id) }
             const options = { upsert: true };
+            console.log(options, 'options admin');
             const updatedDoc = {
                 $set: {
                     role: 'admin'
+                }
+            }
+            const result = await usersCollection.updateOne(filter, updatedDoc, options);
+            res.send(result);
+        });
+
+        app.put('/users/doctor/:id', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const options = { upsert: true };
+            console.log(options, 'options doctor');
+            const updatedDoc = {
+                $set: {
+                    role: 'doctor'
                 }
             }
             const result = await usersCollection.updateOne(filter, updatedDoc, options);
@@ -359,8 +394,9 @@ async function run() {
         // })
 
         app.get('/doctors', /*verifyJWT, verifyAdmin,*/ async (req, res) => {
-            const query = {};
-            const doctors = await doctorsCollection.find(query).toArray();
+            const query = { role: 'doctor' };
+            const doctors = await usersCollection.find(query).toArray();
+            console.log(doctors);
             res.send(doctors);
         })
 
