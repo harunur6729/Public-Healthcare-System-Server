@@ -5,3 +5,7 @@ iii.Copy hex code and set into .env as a ACCESS_TOKEN=akhdfisef74853485jskdgfdg
 
 
 
+Start server : nodemon index.js
+
+
+

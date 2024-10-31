@@ -395,74 +395,100 @@ async function run() {
 
 
 
+        // Endpoint to get conversations by user email
+        app.get('/conversations/:email', async (req, res) => {
+            const { email } = req.params;
+
+            try {
+                const conversations = await ConversationCollection.find({
+                    'participants.email': email
+                }).toArray();
+
+                console.log(conversations);
+
+                res.status(200).json(conversations);
+            } catch (error) {
+                res.status(500).json({ message: 'Error fetching conversations', error });
+            }
+        });
+
+
         // *************************> conversations server code Start: <***********************
         app.post("/conversations", async (req, res) => {
             try {
-                const { email, propertyId } = req?.body || {};
-                if (!(email && propertyId)) {
-                    return res
-                        .status(400)
-                        .json({
-                            error: "Missing required params!",
-                            fields: ["email", "propertyId"],
-                        });
+                const { email, postId } = req.body || {};
+                console.log(email, postId, "email, postId");
+
+                if (!(email && postId)) {
+                    return res.status(400).json({
+                        error: "Missing required params!",
+                        fields: ["email", "postId"],
+                    });
                 }
 
-                const property = (await products.findOne({ _id: ObjectId(propertyId) })) || {};
-                if (!property?._id) {
+                // Retrieve doctor post details
+                const doctorPost = await postCollection.findOne({ _id: ObjectId(postId) });
+                console.log(doctorPost, "doctorPost");
+
+                if (!doctorPost?._id) {
                     return res.status(404).json({
-                        error: "Could not find property!",
-                        fields: ["email", "propertyId"],
+                        error: "Could not find post!",
+                        fields: ["email", "postId"],
                     });
                 }
 
-                const isPropertyOwner = !!(property?.email === email);
-                if (!isPropertyOwner) {
-                    const conversation = await ConversationCollection.findOne({
+                // Check if the user is the owner of the post
+                const isPostOwner = doctorPost?.userEmail === email;
+                console.log(isPostOwner, 'isPostOwner');
+
+                // Only create a conversation if the requester is not the post owner (doctor)
+                if (!isPostOwner) {
+                    // Check if a conversation already exists
+                    const existingConversation = await ConversationCollection.findOne({
                         "participants.email": email,
-                        propertyId: ObjectId(propertyId),
+                        postId: ObjectId(postId),
                     });
 
-                    if (!conversation?._id) {
-                        const { name: propertyOwner, email: receiverEmail } = property || {};
-                        if (!(receiverEmail && propertyOwner)) {
+                    if (!existingConversation?._id) {
+                        const { userName: doctorName, userEmail: doctorEmail } = doctorPost;
+
+                        if (!(doctorEmail && doctorName)) {
                             return res.status(404).json({
-                                error: "Could not find property info!",
-                                fields: ["receiverEmail", "propertyOwner"],
+                                error: "Could not find doctor info!",
+                                fields: ["doctorEmail", "doctorName"],
                             });
                         }
 
-                        const senderUser = (await usersCollection.findOne({ email })) || {};
-                        if (!senderUser?._id) {
-                            return res
-                                .status(404)
-                                .json({ error: "Could not find sender user!" });
+                        // Fetch the user details for conversation
+                        const user = await usersCollection.findOne({ email });
+                        if (!user?._id) {
+                            return res.status(404).json({ error: "Could not find user!" });
                         }
 
-                        const { insertedId } =
-                            (await ConversationCollection.insertOne({
-                                participants: [
-                                    { name: senderUser?.name, email: senderUser?.email },
-                                    { name: propertyOwner, email: receiverEmail },
-                                ],
-                                propertyId: ObjectId(propertyId),
-                                createdBy: senderUser?.email,
-                                createdAt: new Date(),
-                                updatedAt: new Date(),
-                            })) || {};
+                        // Insert new conversation
+                        const { insertedId } = await ConversationCollection.insertOne({
+                            participants: [
+                                { name: user.name, email: user.email },
+                                { name: doctorName, email: doctorEmail },
+                            ],
+                            postId: ObjectId(postId),
+                            createdBy: user.email,
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                        });
+
                         if (!insertedId) {
-                            return res
-                                .status(500)
-                                .json({ error: "Could not create conversation!" });
+                            return res.status(500).json({ error: "Could not create conversation!" });
                         }
                     }
                 }
 
+                // Fetch all conversations for the user related to this post
                 const conversations = await ConversationCollection.aggregate([
                     {
                         $match: {
                             "participants.email": email,
-                            propertyId: ObjectId(propertyId),
+                            postId: ObjectId(postId),
                         },
                     },
                     {
@@ -476,47 +502,56 @@ async function run() {
                 ]).toArray();
 
                 res.status(200).json({
-                    count: conversations?.length,
+                    count: conversations.length,
                     conversations,
                     message: "Successfully Fetched",
                     success: true,
                 });
             } catch (err) {
+                console.error("Error handling conversations:", err);
                 res.status(500).json({ error: err.message });
             }
         });
 
-        app.delete("/conversations/:id", async (req, res) => {
-            try {
-                const conversation = await ConversationCollection.findOne({
-                    _id: req?.params?.id,
-                });
 
-                if (!conversation) {
-                    return res
-                        .status(400)
-                        .json({ error: "Could not find conversation!" });
-                }
 
-                const isDeleted = await ConversationCollection.deleteOne({
-                    _id: req?.params?.id,
-                });
 
-                res.status(200).json({
-                    conversation,
-                    message: !!isDeleted
-                        ? "Successfully Deleted"
-                        : "Could not delete the conversation!",
-                    success: !!isDeleted,
-                });
-            } catch (err) {
-                res.status(500).json({ error: err.message });
-            }
-        });
+        // delete 
+        // app.delete("/conversations/:id", async (req, res) => {
+        //     try {
+        //         const conversation = await ConversationCollection.findOne({
+        //             _id: req?.params?.id,
+        //         });
 
+        //         if (!conversation) {
+        //             return res
+        //                 .status(400)
+        //                 .json({ error: "Could not find conversation!" });
+        //         }
+
+        //         const isDeleted = await ConversationCollection.deleteOne({
+        //             _id: req?.params?.id,
+        //         });
+
+        //         res.status(200).json({
+        //             conversation,
+        //             message: !!isDeleted
+        //                 ? "Successfully Deleted"
+        //                 : "Could not delete the conversation!",
+        //             success: !!isDeleted,
+        //         });
+        //     } catch (err) {
+        //         res.status(500).json({ error: err.message });
+        //     }
+        // });
+
+
+        // post 
         app.post("/conversations/messages", async (req, res, next) => {
             try {
                 const { conversationId, message, senderEmail } = req.body || {};
+
+                console.log(conversationId, message, senderEmail, "conversationId, message, senderEmail");
 
                 if (!(conversationId && message && senderEmail)) {
                     return res.status(400).json({ error: "Invalid request!" });
@@ -561,89 +596,100 @@ async function run() {
             }
         });
 
-        app.get("/conversations/messages/:conversationId", async (req, res) => {
-            try {
-                const conversationMessages = await ConversationMessageCollection.find({
-                    conversationId: req?.params?.conversationId,
-                }).toArray();
 
-                res.status(200).json({
-                    count: conversationMessages?.length,
-                    conversationMessages,
-                    message: "Successfully Fetched",
-                    success: true,
-                });
-            } catch (err) {
-                res.status(500).json({ error: err.message });
-            }
-        });
 
-        app.put("/conversations/messages/:id", async (req, res) => {
-            try {
-                const { message } = req?.body || {};
-                if (!message) {
-                    return res.status(400).json({ error: "Invalid request!" });
-                }
+        // get 
+        // app.get("/conversations/messages/:conversationId", async (req, res) => {
+        //     try {
+        //         const conversationMessages = await ConversationMessageCollection.find({
+        //             conversationId: req?.params?.conversationId,
+        //         }).toArray();
 
-                const conversationMessage = await ConversationMessageCollection.findOne(
-                    {
-                        _id: req?.params?.id,
-                    }
-                );
+        //         res.status(200).json({
+        //             count: conversationMessages?.length,
+        //             conversationMessages,
+        //             message: "Successfully Fetched",
+        //             success: true,
+        //         });
+        //     } catch (err) {
+        //         res.status(500).json({ error: err.message });
+        //     }
+        // });
 
-                if (!conversationMessage) {
-                    return res
-                        .status(400)
-                        .json({ error: "Could not find conversation message!" });
-                }
 
-                const updatedConversationMessage =
-                    await ConversationMessageCollection.update(
-                        { _id: req?.params?.id },
-                        { $set: { isUpdated: true, message, updatedAt: new Date() } }
-                    );
+        // put 
+        // app.put("/conversations/messages/:id", async (req, res) => {
+        //     try {
+        //         const { message } = req?.body || {};
+        //         if (!message) {
+        //             return res.status(400).json({ error: "Invalid request!" });
+        //         }
 
-                res.status(200).json({
-                    conversationMessage: updatedConversationMessage,
-                    message: !!updatedConversationMessage
-                        ? "Successfully Updated"
-                        : "Could not update the conversation message!",
-                    success: !!updatedConversationMessage,
-                });
-            } catch (err) {
-                res.status(500).json({ error: err.message });
-            }
-        });
+        //         const conversationMessage = await ConversationMessageCollection.findOne(
+        //             {
+        //                 _id: req?.params?.id,
+        //             }
+        //         );
 
-        app.delete("/conversations/messages/:id", async (req, res) => {
-            try {
-                const conversationMessage = await ConversationMessageCollection.findOne(
-                    {
-                        _id: req?.params?.id,
-                    }
-                );
+        //         if (!conversationMessage) {
+        //             return res
+        //                 .status(400)
+        //                 .json({ error: "Could not find conversation message!" });
+        //         }
 
-                if (!conversationMessage) {
-                    return res
-                        .status(400)
-                        .json({ error: "Could not find conversation message!" });
-                }
+        //         const updatedConversationMessage =
+        //             await ConversationMessageCollection.update(
+        //                 { _id: req?.params?.id },
+        //                 { $set: { isUpdated: true, message, updatedAt: new Date() } }
+        //             );
 
-                const isDeleted = await ConversationMessageCollection.remove({
-                    _id: req?.params?.id,
-                });
+        //         res.status(200).json({
+        //             conversationMessage: updatedConversationMessage,
+        //             message: !!updatedConversationMessage
+        //                 ? "Successfully Updated"
+        //                 : "Could not update the conversation message!",
+        //             success: !!updatedConversationMessage,
+        //         });
+        //     } catch (err) {
+        //         res.status(500).json({ error: err.message });
+        //     }
+        // });
 
-                res.status(200).json({
-                    conversationMessage,
-                    message: !!isDeleted
-                        ? "Successfully Deleted"
-                        : "Could not delete the conversation message!",
-                    success: !!isDeleted,
-                });
-            } catch (err) {
-                res.status(500).json({ error: err.message });
-            }
-        });
+
+        // delete 
+        // app.delete("/conversations/messages/:id", async (req, res) => {
+        //     try {
+        //         const conversationMessage = await ConversationMessageCollection.findOne(
+        //             {
+        //                 _id: req?.params?.id,
+        //             }
+        //         );
+
+        //         if (!conversationMessage) {
+        //             return res
+        //                 .status(400)
+        //                 .json({ error: "Could not find conversation message!" });
+        //         }
+
+        //         const isDeleted = await ConversationMessageCollection.remove({
+        //             _id: req?.params?.id,
+        //         });
+
+        //         res.status(200).json({
+        //             conversationMessage,
+        //             message: !!isDeleted
+        //                 ? "Successfully Deleted"
+        //                 : "Could not delete the conversation message!",
+        //             success: !!isDeleted,
+        //         });
+        //     } catch (err) {
+        //         res.status(500).json({ error: err.message });
+        //     }
+        // });
+
+
+
+
         // *************************> conversations server code End: <***********************
 
 
