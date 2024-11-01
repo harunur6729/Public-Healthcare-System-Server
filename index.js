@@ -352,6 +352,15 @@ async function run() {
             res.send(result);
         });
 
+        app.delete('/users/:id', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) };
+            const result = await usersCollection.deleteOne(filter);
+            res.send(result);
+        })
+
+
+        // Role Update : 
         app.put('/users/admin/:id', verifyJWT, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: ObjectId(id) }
@@ -366,7 +375,7 @@ async function run() {
             res.send(result);
         });
 
-        app.put('/users/doctor/:id', verifyJWT, verifyAdmin, async (req, res) => {
+        app.put('/users/doctor/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: ObjectId(id) }
             const options = { upsert: true };
@@ -400,16 +409,10 @@ async function run() {
             res.send(doctors);
         })
 
-        app.post('/doctors', /*verifyJWT, verifyAdmin,*/ async (req, res) => {
-            const doctor = req.body;
-            const result = await doctorsCollection.insertOne(doctor);
-            res.send(result);
-        });
-
-        app.delete('/doctors/:id', /*verifyJWT, verifyAdmin,*/ async (req, res) => {
+        app.delete('/doctors/:id', verifyJWT, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: ObjectId(id) };
-            const result = await doctorsCollection.deleteOne(filter);
+            const result = await usersCollection.deleteOne(filter);
             res.send(result);
         })
 
@@ -427,29 +430,61 @@ async function run() {
             res.send(reversedResult)
         })
 
+        //Get doctor posts
+        app.get('/emailPosts', async (req, res) => {
+            try {
+                const email = req.query.email; // Get the email query parameter from the request
+                const query = { userEmail: email }; // Construct the query object
+                const result = await postCollection.find(query).toArray();
+                res.send(result);
+            } catch (error) {
+                console.error(error);
+                res.status(500).send('Error retrieving posts from MongoDB');
+            }
+        });
+
+        // Delete Posts:
+        app.delete('/deleteItem/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }; // Add the new keyword here
+            const result = await postCollection.deleteOne(query);
+            res.send(result);
+        });
 
 
 
+        // *************************> conversations server code Start: <***********************
+        // Endpoint to get conversations by user email:
 
-        // Endpoint to get conversations by user email
+
+        app.get('/posts', async (req, res) => {
+            const postData = postCollection.find({}).sort({ timestamp: -1 });
+            const result = await postData.toArray();
+            const reversedResult = result.reverse();
+            res.send(reversedResult)
+        })
+
         app.get('/conversations/:email', async (req, res) => {
             const { email } = req.params;
 
             try {
                 const conversations = await ConversationCollection.find({
                     'participants.email': email
-                }).toArray();
+                }).sort({ timestamp: -1 }).toArray();
 
-                console.log(conversations);
+                const result = conversations.reverse();
 
-                res.status(200).json(conversations);
+                console.log(result);
+
+                res.status(200).json(result);
             } catch (error) {
                 res.status(500).json({ message: 'Error fetching conversations', error });
             }
         });
 
 
-        // *************************> conversations server code Start: <***********************
+        // Post Conversations: 
+
         app.post("/conversations", async (req, res) => {
             try {
                 const { email, postId } = req.body || {};
@@ -550,9 +585,8 @@ async function run() {
         });
 
 
+        // delete Conversations:
 
-
-        // delete 
         // app.delete("/conversations/:id", async (req, res) => {
         //     try {
         //         const conversation = await ConversationCollection.findOne({
@@ -634,23 +668,23 @@ async function run() {
 
 
 
-        // get 
-        // app.get("/conversations/messages/:conversationId", async (req, res) => {
-        //     try {
-        //         const conversationMessages = await ConversationMessageCollection.find({
-        //             conversationId: req?.params?.conversationId,
-        //         }).toArray();
+        // get
+        app.get("/conversations/messages/:conversationId", async (req, res) => {
+            try {
+                const conversationMessages = await ConversationMessageCollection.find({
+                    conversationId: req?.params?.conversationId,
+                }).toArray();
 
-        //         res.status(200).json({
-        //             count: conversationMessages?.length,
-        //             conversationMessages,
-        //             message: "Successfully Fetched",
-        //             success: true,
-        //         });
-        //     } catch (err) {
-        //         res.status(500).json({ error: err.message });
-        //     }
-        // });
+                res.status(200).json({
+                    count: conversationMessages?.length,
+                    conversationMessages,
+                    message: "Successfully Fetched",
+                    success: true,
+                });
+            } catch (err) {
+                res.status(500).json({ error: err.message });
+            }
+        });
 
 
         // put 
@@ -727,8 +761,6 @@ async function run() {
 
 
         // *************************> conversations server code End: <***********************
-
-
 
 
 
