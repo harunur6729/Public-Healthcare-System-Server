@@ -329,6 +329,13 @@ async function run() {
             res.send(users);
         });
 
+        // Get user data by email
+        app.get('/user/mongo', async (req, res) => {
+            const email = req.query.email;
+            const user = await usersCollection.findOne({ email });
+            res.send(user)
+        });
+
         app.get('/users/admin/:email', async (req, res) => {
             const email = req.params.email;
             const query = { email }
