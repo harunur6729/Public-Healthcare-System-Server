@@ -147,24 +147,24 @@ async function run() {
         }
 
         // Use Aggregate to query multiple collection and then merge data
-        app.get('/appointmentOptions', async (req, res) => {
-            const date = req.query.date;
-            const query = {};
-            const options = await appointmentOptionCollection.find(query).toArray();
+        // app.get('/appointmentOptions', async (req, res) => {
+        //     const date = req.query.date;
+        //     const query = {};
+        //     const options = await appointmentOptionCollection.find(query).toArray();
 
-            // get the bookings of the provided date
-            const bookingQuery = { appointmentDate: date }
-            const alreadyBooked = await bookingsCollection.find(bookingQuery).toArray();
+        //     // get the bookings of the provided date
+        //     const bookingQuery = { appointmentDate: date }
+        //     const alreadyBooked = await bookingsCollection.find(bookingQuery).toArray();
 
-            // code carefully :D
-            options.forEach(option => {
-                const optionBooked = alreadyBooked.filter(book => book.treatment === option.name);
-                const bookedSlots = optionBooked.map(book => book.slot);
-                const remainingSlots = option.slots.filter(slot => !bookedSlots.includes(slot))
-                option.slots = remainingSlots;
-            })
-            res.send(options);
-        });
+        //     // code carefully :D
+        //     options.forEach(option => {
+        //         const optionBooked = alreadyBooked.filter(book => book.treatment === option.name);
+        //         const bookedSlots = optionBooked.map(book => book.slot);
+        //         const remainingSlots = option.slots.filter(slot => !bookedSlots.includes(slot))
+        //         option.slots = remainingSlots;
+        //     })
+        //     res.send(options);
+        // });
 
         app.get('/v2/appointmentOptions', async (req, res) => {
             const date = req.query.date;
@@ -197,7 +197,9 @@ async function run() {
                                 as: 'book',
                                 in: '$$book.slot'
                             }
-                        }
+                        },
+                        doctorName: 1,
+                        doctorPhoto: 1  // Ensure this is included in the response
                     }
                 },
                 {
@@ -206,18 +208,50 @@ async function run() {
                         price: 1,
                         slots: {
                             $setDifference: ['$slots', '$booked']
-                        }
+                        },
+                        doctorName: 1,
+                        doctorPhoto: 1
                     }
                 }
             ]).toArray();
             res.send(options);
         })
 
+
         app.get('/appointmentSpecialty', async (req, res) => {
             const query = {}
             const result = await appointmentOptionCollection.find(query).project({ name: 1 }).toArray();
             res.send(result);
         })
+
+        // Update Doctor :
+        app.put('/v2/updateAppointmentOptions', async (req, res) => {
+            try {
+                const { specialty, doctorName, doctorPhoto } = req.body;
+
+                console.log(specialty, doctorName, doctorPhoto, "specialty, doctorName, doctorPhoto");
+
+                // Update the appointment options based on the specialty
+                const result = await appointmentOptionCollection.updateMany(
+                    { name: specialty }, // Match the specialty with the name in the collection
+                    {
+                        $set: {
+                            doctorName: doctorName,
+                            doctorPhoto: doctorPhoto
+                        }
+                    }
+                );
+
+                res.status(200).send({
+                    message: 'Appointment options updated successfully',
+                    modifiedCount: result.modifiedCount,
+                });
+            } catch (error) {
+                console.error('Error updating appointment options:', error);
+                res.status(500).send({ error: 'Failed to update appointment options' });
+            }
+        });
+
 
         /***
          * API Naming Convention 
@@ -462,7 +496,6 @@ async function run() {
 
         // *************************> conversations server code Start: <***********************
         // Endpoint to get conversations by user email:
-
 
         app.get('/posts', async (req, res) => {
             const postData = postCollection.find({}).sort({ timestamp: -1 });
