@@ -91,6 +91,7 @@ function sendBookingEmail(paidBookingResult) {
 // verifyJWT: 
 function verifyJWT(req, res, next) {
     const authHeader = req.headers.authorization;
+
     if (!authHeader) {
         return res.status(401).send('unauthorized access');
     }
@@ -262,16 +263,16 @@ async function run() {
          * app.delete('/bookings/:id')
         */
 
-        app.get('/bookings', verifyJWT, async (req, res) => {
+        app.get('/bookings', async (req, res) => {
             const email = req.query.email;
-            const decodedEmail = req.decoded.email;
+            // const decodedEmail = req.decoded.email;
 
-            if (email !== decodedEmail) {
-                return res.status(403).send({ message: 'forbidden access' });
-            }
+            // if (email !== decodedEmail) {
+            //     return res.status(403).send({ message: 'forbidden access' });
+            // }
 
-            const query = { email: email };
-            const bookings = await bookingsCollection.find(query).toArray();
+            // const query = { email: email };
+            const bookings = await bookingsCollection.find({ email }).toArray();
             res.send(bookings);
         });
 
