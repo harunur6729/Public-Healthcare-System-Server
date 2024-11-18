@@ -23,7 +23,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@harunurrashid.qzeok.mongodb.net/?retryWrites=true&w=majority&appName=harunurRashid`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@harunurrashid.qzeok.mongodb.net/?retryWrites=true&w=majority&appName=harunurRashid`;
 const client = new MongoClient(process.env.MONGODB_URI || uri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
@@ -385,7 +385,8 @@ async function run() {
             res.send({ isDoctor: user?.role === 'doctor' });
         })
 
-        app.post('/users', async (req, res) => {node
+        app.post('/users', async (req, res) => {
+            node
             const user = req.body;
             console.log("user", user);
             // TODO: make sure you do not enter duplicate user email
