@@ -111,7 +111,7 @@ async function run() {
         const appointmentOptionCollection = client.db('docApp').collection('appointmentOptions');
         const bookingsCollection = client.db('docApp').collection('bookings');
         const usersCollection = client.db('docApp').collection('users');
-        const doctorsCollection = client.db('docApp').collection('doctors');
+        // const doctorsCollection = client.db('docApp').collection('doctors');
         const paymentsCollection = client.db('docApp').collection('payments');
         const postCollection = client.db("docApp").collection("posts")
 
