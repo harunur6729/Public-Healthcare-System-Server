@@ -386,7 +386,6 @@ async function run() {
         })
 
         app.post('/users', async (req, res) => {
-            node
             const user = req.body;
             console.log("user", user);
             // TODO: make sure you do not enter duplicate user email
