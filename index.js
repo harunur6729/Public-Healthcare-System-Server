@@ -385,7 +385,7 @@ async function run() {
             res.send({ isDoctor: user?.role === 'doctor' });
         })
 
-        app.post('/users', async (req, res) => {
+        app.post('/users', async (req, res) => {node
             const user = req.body;
             console.log("user", user);
             // TODO: make sure you do not enter duplicate user email
