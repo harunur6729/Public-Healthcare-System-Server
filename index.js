@@ -7,6 +7,11 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
+const SSLCommerzPayment = require('sslcommerz-lts')
+const store_id = process.env.storeID;
+const store_passwd = process.env.storePassword;
+const is_live = false //true for live, false for sandbox
+
 // From MAilgun: 
 const formData = require('form-data');
 const Mailgun = require('mailgun.js');
@@ -105,6 +110,9 @@ function verifyJWT(req, res, next) {
         next();
     })
 }
+
+
+
 
 async function run() {
     try {
@@ -767,7 +775,6 @@ async function run() {
         // });
 
 
-        // delete 
         // app.delete("/conversations/messages/:id", async (req, res) => {
         //     try {
         //         const conversationMessage = await ConversationMessageCollection.findOne(
@@ -798,13 +805,83 @@ async function run() {
         //     }
         // });
 
-
-
-
         // *************************> conversations server code End: <***********************
 
 
 
+
+        // Payment SSLcommerz Bkash/Nogod/Rockket :
+        const tran_id = new ObjectId().toString();
+
+        app.post("/order", async (req, res) => {
+            try {
+                const order = req.body;
+
+                console.log("Order received:", order);
+
+                // Convert price to a number if it's a string
+                const price = parseFloat(order.price);
+
+                if (!price || isNaN(price)) {
+                    return res.status(400).send({ error: "Invalid or missing price" });
+                }
+
+                // Generate a unique transaction ID
+                // const tran_id = `tran_${Date.now()}`;
+
+                // Prepare the SSLCommerz payment data
+                const data = {
+                    total_amount: price, // Ensure price is a number
+                    currency: "BDT",
+                    tran_id: tran_id,
+                    success_url: "http://localhost:3030/success",
+                    fail_url: "http://localhost:3030/fail",
+                    cancel_url: "http://localhost:3030/cancel",
+                    ipn_url: "http://localhost:3030/ipn",
+                    shipping_method: "Courier",
+                    product_name: "Computer",
+                    product_category: "Electronic",
+                    product_profile: "general",
+                    cus_name: order.name || "Unknown",
+                    cus_email: order.email || "unknown@example.com",
+                    cus_add1: order.address || "Dhaka",
+                    cus_add2: "Dhaka",
+                    cus_city: "Dhaka",
+                    cus_state: "Dhaka",
+                    cus_postcode: "1000",
+                    cus_country: "Bangladesh",
+                    cus_phone: order.phone || "01700000000",
+                    cus_fax: "01711111111",
+                    ship_name: "Customer Name",
+                    ship_add1: "Dhaka",
+                    ship_add2: "Dhaka",
+                    ship_city: "Dhaka",
+                    ship_state: "Dhaka",
+                    ship_postcode: "1000",
+                    ship_country: "Bangladesh",
+                };
+
+                // Initialize SSLCommerz payment
+                const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+                sslcz.init(data).then((apiResponse) => {
+                    console.log("SSLCommerz API Response:", apiResponse);
+
+                    // Ensure GatewayPageURL is present
+                    if (!apiResponse?.GatewayPageURL) {
+                        throw new Error("GatewayPageURL is missing in SSLCommerz response");
+                    }
+
+                    // Send the payment gateway URL back to the client
+                    res.send({ url: apiResponse.GatewayPageURL });
+                }).catch((error) => {
+                    console.error("Error during SSLCommerz initialization:", error);
+                    res.status(500).send({ error: "Failed to initialize payment" });
+                });
+            } catch (error) {
+                console.error("Error in /order endpoint:", error);
+                res.status(500).send({ error: "Server error" });
+            }
+        });
 
     }
     finally {
