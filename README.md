@@ -1,4 +1,4 @@
-Server Link : https://doc-app-server.vercel.app/
+Server Link : https://public-healthcare-system-server.vercel.app/
 
 JWT: <br/>
 i.  Go to terminal ---- node
